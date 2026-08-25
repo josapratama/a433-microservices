@@ -1,0 +1,160 @@
+# =============================================================
+# ci.yml - GitHub Actions CI untuk branch karsajobs (backend)
+# Deskripsi: Pipeline CI otomatis yang berjalan setiap kali
+#            ada push atau pull request ke branch karsajobs.
+#
+# Pipeline ini memiliki 3 job yang berjalan secara berurutan:
+#   1. lint-dockerfile : Validasi kualitas Dockerfile
+#   2. test-app        : Menjalankan unit test Go
+#   3. build-app-karsajobs : Build dan push image ke GHCR
+#
+# Secrets yang diperlukan (set di GitHub > Settings > Secrets):
+#   - GHCR_TOKEN : GitHub Personal Access Token dengan scope
+#                  write:packages untuk push ke GHCR
+# =============================================================
+
+name: CI - Karsajobs Backend
+
+# Trigger: pipeline berjalan saat ada push atau pull request ke branch karsajobs
+on:
+  push:
+    branches:
+      - karsajobs
+  pull_request:
+    branches:
+      - karsajobs
+
+jobs:
+  # ===========================================================
+  # Job 1: lint-dockerfile
+  # Menjalankan hadolint untuk memvalidasi best practices
+  # pada Dockerfile backend. Hadolint adalah linter populer
+  # untuk Dockerfile yang berbasis ShellCheck.
+  # ===========================================================
+  lint-dockerfile:
+    name: Lint Dockerfile
+    # Runner yang digunakan: Ubuntu terbaru (hosted by GitHub)
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install hadolint
+      # Download binary hadolint langsung dari GitHub releases
+      # dan berikan permission execute
+      - name: Install hadolint
+        run: |
+          # Download hadolint binary versi terbaru untuk Linux AMD64
+          wget -O /usr/local/bin/hadolint \
+            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          # Berikan permission execute pada binary hadolint
+          chmod +x /usr/local/bin/hadolint
+
+      # Step 3: Jalankan hadolint pada Dockerfile backend
+      # Jika ada pelanggaran aturan, step ini akan gagal
+      - name: Run hadolint on Dockerfile
+        run: |
+          echo ">>> Menjalankan hadolint pada Dockerfile..."
+          hadolint Dockerfile
+          echo ">>> Dockerfile linting selesai tanpa error."
+
+  # ===========================================================
+  # Job 2: test-app
+  # Menjalankan unit test untuk aplikasi backend Go.
+  # Job ini bergantung pada lint-dockerfile (harus lulus dulu).
+  # ===========================================================
+  test-app:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    # Job ini hanya berjalan jika lint-dockerfile berhasil
+    needs: lint-dockerfile
+
+    steps:
+      # Step 1: Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Go environment
+      # Menggunakan Go versi 1.21 (lebih baru dari Dockerfile, cocok untuk CI)
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          # Cache dependency Go untuk mempercepat build berikutnya
+          cache: true
+
+      # Step 3: Download dependency Go modules
+      - name: Download Go modules
+        run: go mod download
+
+      # Step 4: Jalankan unit test
+      # Flag:
+      #   -v       : verbose output (tampilkan nama setiap test)
+      #   -short   : lewati test yang membutuhkan dependensi eksternal (DB, dll)
+      #   --count=1: nonaktifkan test cache (selalu jalankan test fresh)
+      - name: Run unit tests
+        run: |
+          echo ">>> Menjalankan unit test backend..."
+          go test -v -short --count=1 $(go list ./...)
+          echo ">>> Unit test selesai."
+
+  # ===========================================================
+  # Job 3: build-app-karsajobs
+  # Build Docker image dari Dockerfile dan push ke GHCR.
+  # Job ini hanya berjalan setelah test-app berhasil.
+  # ===========================================================
+  build-app-karsajobs:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    # Job ini hanya berjalan jika test-app berhasil
+    needs: test-app
+    # Hanya build dan push saat push ke branch karsajobs (bukan PR)
+    if: github.event_name == 'push'
+
+    steps:
+      # Step 1: Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Docker Buildx
+      # Buildx mendukung multi-platform build dan fitur build cache
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Login ke GitHub Container Registry (GHCR)
+      # Menggunakan GHCR_TOKEN dari GitHub Secrets untuk autentikasi
+      # github.actor adalah username pemilik repository yang memicu workflow
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          # Username GitHub yang menjalankan workflow
+          username: ${{ github.actor }}
+          # Token GitHub dengan izin write:packages untuk push ke GHCR
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      # Step 4: Build dan push Docker image ke GHCR
+      # Image akan di-tag dengan "latest" dan SHA commit saat ini
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          # Konteks build adalah direktori root repository
+          context: .
+          # Aktifkan push ke registry
+          push: true
+          # Tag image: latest dan SHA commit (untuk traceability)
+          tags: |
+            ghcr.io/josapratama/karsajobs:latest
+            ghcr.io/josapratama/karsajobs:${{ github.sha }}
+          # Cache layer Docker dari GitHub Actions cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 5: Tampilkan informasi image yang berhasil di-push
+      - name: Image pushed successfully
+        run: |
+          echo ">>> Image berhasil di-push ke GHCR!"
+          echo ">>> ghcr.io/josapratama/karsajobs:latest"
+          echo ">>> ghcr.io/josapratama/karsajobs:${{ github.sha }}"
