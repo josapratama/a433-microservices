@@ -1,0 +1,43 @@
+# =============================================================
+# mongo-service.yml
+# Deskripsi: Service untuk MongoDB.
+#
+# Service adalah objek Kubernetes yang menyediakan endpoint
+# jaringan yang stabil untuk mengakses Pod. Meskipun IP Pod
+# berubah saat restart, IP/nama Service tetap sama.
+#
+# Tipe ClusterIP (default): Service hanya bisa diakses dari
+# dalam cluster. Cocok untuk database yang tidak perlu
+# diakses dari luar cluster.
+#
+# Nama Service "mongo-service" akan digunakan sebagai
+# MONGO_HOST pada konfigurasi backend Karsa Jobs.
+# =============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  # Nama Service ini digunakan sebagai DNS hostname di dalam cluster
+  # Backend akan menggunakan nama ini sebagai MONGO_HOST
+  name: mongo-service
+  namespace: default
+  labels:
+    app: mongodb
+spec:
+  # ClusterIP: Service hanya dapat diakses dari dalam cluster Kubernetes
+  # Database tidak perlu diekspos keluar cluster
+  type: ClusterIP
+
+  # Selector menentukan Pod mana yang menjadi target Service ini
+  # Harus sesuai dengan label pada Pod di StatefulSet
+  selector:
+    app: mongodb
+
+  ports:
+    - name: mongodb
+      # Port yang diekspos oleh Service (port untuk koneksi dari dalam cluster)
+      port: 27017
+      # Port yang dibuka di dalam container MongoDB
+      targetPort: 27017
+      # Protokol TCP digunakan oleh MongoDB
+      protocol: TCP

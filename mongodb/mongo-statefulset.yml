@@ -1,0 +1,106 @@
+# =============================================================
+# mongo-statefulset.yml
+# Deskripsi: StatefulSet untuk MongoDB.
+#
+# StatefulSet digunakan (bukan Deployment) karena MongoDB
+# adalah stateful application yang membutuhkan:
+#   1. Identitas jaringan yang stabil dan unik untuk setiap Pod
+#   2. Penyimpanan persisten yang terikat pada Pod tertentu
+#   3. Urutan deployment dan scaling yang terjamin
+#
+# Pod yang dibuat oleh StatefulSet akan dinamai dengan pola:
+#   <nama-statefulset>-<ordinal>, contoh: mongo-0
+# =============================================================
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  # Nama StatefulSet
+  name: mongo
+  namespace: default
+  labels:
+    app: mongodb
+spec:
+  # Jumlah replika Pod MongoDB (1 untuk deployment single-instance)
+  replicas: 1
+
+  # Selector untuk memilih Pod yang dikelola StatefulSet ini
+  selector:
+    matchLabels:
+      app: mongodb
+
+  # Nama Service yang memberikan identitas jaringan ke Pod
+  # Harus sama dengan nama Service yang dibuat di mongo-service.yml
+  serviceName: "mongo-service"
+
+  template:
+    metadata:
+      # Label pada Pod harus sesuai dengan selector di atas
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          # Menggunakan image MongoDB versi 4.4
+          image: mongo:4.4
+
+          ports:
+            # Port standar MongoDB
+            - containerPort: 27017
+
+          # Argument untuk menjalankan MongoDB dengan file konfigurasi
+          # yang di-mount dari ConfigMap
+          args: ["--config", "/config/mongo.conf"]
+
+          # Environment variables untuk inisialisasi database MongoDB
+          env:
+            # Membaca username dari file (di-mount dari Secret)
+            # _FILE suffix memberitahu MongoDB untuk membaca nilai dari file
+            - name: MONGO_INITDB_ROOT_USERNAME_FILE
+              value: /etc/mongo-credentials/MONGO_ROOT_USERNAME
+
+            # Membaca password dari file (di-mount dari Secret)
+            - name: MONGO_INITDB_ROOT_PASSWORD_FILE
+              value: /etc/mongo-credentials/MONGO_ROOT_PASSWORD
+
+          # Mendefinisikan volume yang akan di-mount ke dalam container
+          volumeMounts:
+            # Mount PersistentVolume untuk menyimpan data MongoDB
+            - name: mongo-storage
+              mountPath: /data/db   # Harus sesuai dengan dbPath di mongo.conf
+
+            # Mount ConfigMap sebagai file konfigurasi MongoDB
+            - name: mongo-config
+              mountPath: /config    # Tempat file mongo.conf akan tersedia
+
+            # Mount Secret sebagai file kredensial
+            - name: mongo-secret
+              mountPath: /etc/mongo-credentials  # Tempat file username & password
+
+          # Resource limits dan requests untuk manajemen resource
+          resources:
+            requests:
+              memory: "256Mi"   # Minimal memory yang dijamin tersedia
+              cpu: "250m"       # Minimal CPU yang dijamin tersedia (250 miliCPU)
+            limits:
+              memory: "512Mi"   # Maksimal memory yang boleh digunakan
+              cpu: "500m"       # Maksimal CPU yang boleh digunakan
+
+      # Mendefinisikan volume yang tersedia untuk di-mount ke container
+      volumes:
+        # Volume dari PersistentVolumeClaim untuk data persistensi
+        - name: mongo-storage
+          persistentVolumeClaim:
+            claimName: mongo-pvc   # Nama PVC yang dibuat di mongo-pv-pvc.yml
+
+        # Volume dari ConfigMap untuk konfigurasi MongoDB
+        - name: mongo-config
+          configMap:
+            name: mongo-config    # Nama ConfigMap di mongo-configmap.yml
+
+        # Volume dari Secret untuk kredensial MongoDB
+        # defaultMode: 0400 memastikan file hanya bisa dibaca oleh owner (keamanan)
+        - name: mongo-secret
+          secret:
+            secretName: mongo-secret    # Nama Secret di mongo-secret.yml
+            defaultMode: 0400           # Permission: owner read-only

@@ -1,0 +1,139 @@
+# =============================================================
+# grafana-deployment.yml
+# Deskripsi: Deployment dan Service untuk Grafana.
+#
+# Grafana adalah platform visualisasi dan analitik open-source.
+# Grafana membaca data dari Prometheus dan menampilkannya
+# dalam bentuk dashboard yang informatif dan mudah dipahami.
+#
+# Setelah deploy, akses Grafana via: http://<Node_IP>:30300
+# Login dengan: admin / admin (sesuai grafana-secret.yml)
+# =============================================================
+
+# ---
+# Bagian 1: Deployment Grafana
+# ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  # Satu replika Grafana untuk environment lokal
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: grafana
+
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      # Security context untuk memastikan Grafana berjalan dengan
+      # user yang tepat (fsGroup 472 adalah UID default Grafana)
+      securityContext:
+        fsGroup: 472
+        runAsUser: 472
+
+      containers:
+        - name: grafana
+          # Image Grafana versi stabil
+          image: grafana/grafana:10.1.0
+
+          ports:
+            # Port standar Grafana web UI
+            - containerPort: 3000
+
+          # Mengambil environment variable dari Secret grafana-secret
+          env:
+            # Username admin Grafana dari Secret
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: GF_SECURITY_ADMIN_USER
+
+            # Password admin Grafana dari Secret
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: GF_SECURITY_ADMIN_PASSWORD
+
+            # Menonaktifkan prompt ganti password saat login pertama
+            - name: GF_SECURITY_ALLOW_EMBEDDING
+              value: "true"
+
+          volumeMounts:
+            # Mount datasource provisioning dari ConfigMap
+            - name: grafana-datasource
+              mountPath: /etc/grafana/provisioning/datasources
+
+            # Mount storage Grafana untuk menyimpan data dashboard
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+          # Readiness probe: cek apakah Grafana siap menerima request
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+          # Liveness probe: restart container jika Grafana tidak responsif
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+      volumes:
+        # Volume dari ConfigMap untuk provisioning datasource otomatis
+        - name: grafana-datasource
+          configMap:
+            name: grafana-datasource
+
+        # Volume penyimpanan Grafana (EmptyDir untuk lokal)
+        # Untuk production, gunakan PersistentVolumeClaim
+        - name: grafana-storage
+          emptyDir: {}
+
+---
+# ---
+# Bagian 2: Service Grafana
+# Mengekspos Grafana agar dapat diakses dari browser
+# ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  # NodePort agar Grafana dashboard dapat diakses dari browser
+  type: NodePort
+
+  selector:
+    app: grafana
+
+  ports:
+    - name: web
+      port: 3000           # Port internal Service
+      targetPort: 3000     # Port di dalam container Grafana
+      nodePort: 30300      # Port yang diekspos di Node (akses via <Node_IP>:30300)
+      protocol: TCP

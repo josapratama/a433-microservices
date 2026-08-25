@@ -1,0 +1,28 @@
+# =============================================================
+# mongo-configmap.yml
+# Deskripsi: ConfigMap untuk menyimpan konfigurasi MongoDB.
+#
+# ConfigMap digunakan untuk menyimpan data konfigurasi non-rahasia
+# dalam bentuk key-value yang dapat di-mount sebagai file atau
+# digunakan sebagai environment variable di dalam Pod.
+#
+# Di sini, konfigurasi disimpan sebagai file "mongo.conf" yang
+# akan di-mount ke path /config di dalam container MongoDB.
+# =============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # Nama ConfigMap yang akan direferensikan di StatefulSet
+  name: mongo-config
+  namespace: default
+  labels:
+    app: mongodb
+data:
+  # Konfigurasi MongoDB disimpan sebagai file "mongo.conf"
+  # Format YAML ini akan di-mount sebagai file di dalam container
+  mongo.conf: |
+    storage:
+      # dbPath menentukan direktori tempat MongoDB menyimpan data
+      # Nilai ini harus sesuai dengan mountPath pada PersistentVolume
+      dbPath: /data/db

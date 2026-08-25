@@ -1,0 +1,76 @@
+# =============================================================
+# prometheus-rbac.yml
+# Deskripsi: RBAC (Role-Based Access Control) untuk Prometheus.
+#
+# Prometheus membutuhkan izin untuk mengakses Kubernetes API
+# guna melakukan Service Discovery (menemukan Pod, Node, dll
+# yang akan di-monitor secara otomatis).
+#
+# Komponen RBAC:
+#   - ServiceAccount: identitas untuk Prometheus Pod
+#   - ClusterRole: kumpulan permission yang diperlukan
+#   - ClusterRoleBinding: menghubungkan ServiceAccount ke ClusterRole
+# =============================================================
+
+# ---
+# Bagian 1: ServiceAccount
+# Identitas yang digunakan oleh Prometheus Pod untuk berinteraksi
+# dengan Kubernetes API
+# ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+
+---
+# ---
+# Bagian 2: ClusterRole
+# Mendefinisikan permission (hak akses) yang dibutuhkan Prometheus
+# untuk membaca resource Kubernetes guna service discovery
+# ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+rules:
+  # Izin untuk membaca (get, list, watch) resource berikut:
+  - apiGroups: [""]
+    resources:
+      - nodes             # Informasi Node untuk scrape node metrics
+      - nodes/proxy       # Proxy ke Node untuk akses metrics
+      - services          # Daftar Service untuk service discovery
+      - endpoints         # Endpoint Service untuk menemukan Pod
+      - pods              # Daftar Pod untuk pod discovery
+    verbs: ["get", "list", "watch"]
+
+  # Izin untuk mengakses non-resource URLs (endpoint metrics standar)
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+
+---
+# ---
+# Bagian 3: ClusterRoleBinding
+# Menghubungkan ServiceAccount Prometheus dengan ClusterRole
+# sehingga Pod Prometheus mendapatkan permission yang diperlukan
+# ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+roleRef:
+  # Mereferensikan ClusterRole yang sudah dibuat di atas
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  # ServiceAccount yang akan mendapatkan permission ClusterRole ini
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring

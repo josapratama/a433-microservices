@@ -1,0 +1,40 @@
+# =============================================================
+# karsajobs-ui-service.yml
+# Deskripsi: Service untuk frontend Karsa Jobs (Vue.js).
+#
+# Service tipe NodePort digunakan agar frontend dapat diakses
+# langsung dari browser pengguna via IP Node dan NodePort.
+#
+# Setelah deploy, akses frontend melalui:
+#   http://<Node_IP>:30000
+# Dapatkan Node IP dengan perintah: minikube ip
+# =============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  # Nama Service frontend
+  name: karsajobs-ui-service
+  namespace: default
+  labels:
+    app: karsajobs-ui
+spec:
+  # NodePort: mengekspos Service pada port tertentu di setiap Node
+  # Memungkinkan akses dari browser via <NodeIP>:<NodePort>
+  type: NodePort
+
+  # Selector menentukan Pod mana yang menjadi target Service ini
+  # Harus sesuai dengan label pada Pod di Deployment
+  selector:
+    app: karsajobs-ui
+
+  ports:
+    - name: http
+      # Port internal Service
+      port: 8000
+      # Port di dalam container Vue.js yang menerima traffic
+      targetPort: 8000
+      # NodePort: port yang diekspos di Node untuk akses browser
+      # Akses frontend via: http://<Node_IP>:30000
+      nodePort: 30000
+      protocol: TCP

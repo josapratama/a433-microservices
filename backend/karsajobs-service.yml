@@ -1,0 +1,42 @@
+# =============================================================
+# karsajobs-service.yml
+# Deskripsi: Service untuk backend Karsa Jobs (Go API).
+#
+# Service tipe NodePort digunakan agar backend API dapat
+# diakses dari luar cluster Kubernetes (via IP Node dan
+# NodePort yang ditentukan).
+#
+# Frontend (karsajobs-ui) akan berkomunikasi dengan backend
+# melalui NodePort ini.
+#
+# NodePort range yang valid: 30000-32767
+# =============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  # Nama Service backend
+  name: karsajobs-service
+  namespace: default
+  labels:
+    app: karsajobs
+spec:
+  # NodePort: mengekspos Service pada port tertentu di setiap Node
+  # Memungkinkan akses dari luar cluster via <NodeIP>:<NodePort>
+  type: NodePort
+
+  # Selector menentukan Pod mana yang menjadi target Service ini
+  # Harus sesuai dengan label pada Pod di Deployment
+  selector:
+    app: karsajobs
+
+  ports:
+    - name: http
+      # Port internal Service (digunakan komunikasi antar-Service dalam cluster)
+      port: 8080
+      # Port di dalam container yang menerima traffic
+      targetPort: 8080
+      # NodePort: port yang diekspos di Node untuk akses eksternal
+      # Nilai custom dalam range 30000-32767
+      nodePort: 30080
+      protocol: TCP

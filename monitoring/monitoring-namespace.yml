@@ -1,0 +1,18 @@
+# =============================================================
+# monitoring-namespace.yml
+# Deskripsi: Namespace khusus untuk komponen monitoring.
+#
+# Namespace adalah cara Kubernetes untuk mengisolasi resource
+# dalam satu cluster. Semua komponen monitoring (Prometheus
+# dan Grafana) akan di-deploy di dalam namespace ini agar
+# terpisah dari aplikasi utama (namespace default).
+# =============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  # Nama namespace untuk monitoring
+  name: monitoring
+  labels:
+    # Label untuk identifikasi namespace
+    purpose: monitoring

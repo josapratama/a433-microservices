@@ -1,0 +1,39 @@
+# =============================================================
+# grafana-datasource-configmap.yml
+# Deskripsi: ConfigMap untuk provisioning datasource Grafana.
+#
+# Grafana mendukung provisioning otomatis (auto-configuration)
+# untuk datasource via file YAML yang di-mount ke direktori
+# /etc/grafana/provisioning/datasources/.
+#
+# Dengan provisioning ini, Prometheus sudah terhubung ke Grafana
+# secara otomatis tanpa perlu konfigurasi manual melalui UI.
+# =============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  # File provisioning datasource untuk Grafana
+  # Nama file bebas, tapi harus berekstensi .yaml atau .yml
+  datasource.yaml: |
+    apiVersion: 1
+
+    datasources:
+      # Konfigurasi Prometheus sebagai datasource default
+      - name: Prometheus
+        type: prometheus
+        # URL internal Grafana untuk mengakses Prometheus
+        # Menggunakan nama Service Prometheus dalam cluster
+        url: http://prometheus-service:9090
+        # isDefault: true menjadikan Prometheus sebagai datasource utama
+        isDefault: true
+        # access: proxy berarti Grafana Server yang query ke Prometheus
+        # (berbeda dengan "browser" dimana browser langsung query Prometheus)
+        access: proxy
+        # editable: true mengizinkan modifikasi datasource via UI Grafana
+        editable: true

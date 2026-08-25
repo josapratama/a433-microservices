@@ -1,0 +1,125 @@
+# =============================================================
+# prometheus-deployment.yml
+# Deskripsi: Deployment dan Service untuk Prometheus.
+#
+# Prometheus adalah sistem monitoring yang mengumpulkan metrics
+# dari aplikasi dan infrastruktur secara berkala (scraping).
+# Data metrics kemudian dapat divisualisasikan menggunakan
+# Grafana atau digunakan untuk alerting.
+# =============================================================
+
+# ---
+# Bagian 1: Deployment Prometheus
+# ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  # Satu replika Prometheus sudah cukup untuk environment lokal
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: prometheus
+
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      # Menggunakan ServiceAccount dengan RBAC yang sudah dibuat
+      serviceAccountName: prometheus
+
+      containers:
+        - name: prometheus
+          # Image Prometheus versi stabil (LTS)
+          image: prom/prometheus:v2.47.0
+
+          args:
+            # Path file konfigurasi Prometheus
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            # Direktori penyimpanan data time-series Prometheus
+            - "--storage.tsdb.path=/prometheus"
+            # Retensi data selama 15 hari
+            - "--storage.tsdb.retention.time=15d"
+            # Mengaktifkan lifecycle API untuk reload konfigurasi tanpa restart
+            - "--web.enable-lifecycle"
+
+          ports:
+            # Port standar Prometheus web UI dan API
+            - containerPort: 9090
+
+          volumeMounts:
+            # Mount konfigurasi dari ConfigMap
+            - name: prometheus-config
+              mountPath: /etc/prometheus/
+
+            # Mount storage untuk data time-series Prometheus
+            - name: prometheus-storage
+              mountPath: /prometheus
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          # Readiness probe: cek apakah Prometheus siap menerima request
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          # Liveness probe: restart container jika Prometheus tidak responsif
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+      volumes:
+        # Volume konfigurasi dari ConfigMap prometheus-config
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+
+        # Volume untuk menyimpan data metrics Prometheus (EmptyDir untuk lokal)
+        # Untuk production, gunakan PersistentVolumeClaim
+        - name: prometheus-storage
+          emptyDir: {}
+
+---
+# ---
+# Bagian 2: Service Prometheus
+# Mengekspos Prometheus agar dapat diakses dari browser
+# dan dari Grafana sebagai datasource
+# ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  # NodePort agar Prometheus dapat diakses dari luar cluster
+  type: NodePort
+
+  selector:
+    app: prometheus
+
+  ports:
+    - name: web
+      port: 9090           # Port internal Service
+      targetPort: 9090     # Port di dalam container Prometheus
+      nodePort: 30090      # Port yang diekspos di Node (akses via <Node_IP>:30090)
+      protocol: TCP

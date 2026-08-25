@@ -1,0 +1,69 @@
+# =============================================================
+# mongo-pv-pvc.yml
+# Deskripsi: PersistentVolume (PV) dan PersistentVolumeClaim (PVC)
+#            untuk penyimpanan data MongoDB.
+#
+# PersistentVolume (PV):
+#   - Merupakan storage yang disediakan oleh administrator cluster.
+#   - Bersifat independen dari lifecycle Pod, sehingga data tetap
+#     ada meskipun Pod dihapus atau di-restart.
+#
+# PersistentVolumeClaim (PVC):
+#   - Merupakan permintaan storage dari user/aplikasi.
+#   - PVC akan "bind" ke PV yang memiliki kapasitas dan
+#     access mode yang sesuai.
+# =============================================================
+
+# ---
+# Bagian 1: PersistentVolume
+# Menyediakan storage fisik yang akan digunakan MongoDB
+# ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  # Nama PV yang unik dalam cluster
+  name: mongo-pv
+  labels:
+    app: mongodb
+    type: local
+spec:
+  # Kapasitas storage yang disediakan (1 Gigabyte)
+  capacity:
+    storage: 1Gi
+
+  # ReadWriteOnce: hanya satu Node yang bisa melakukan read/write
+  # Cocok untuk database single-instance seperti MongoDB ini
+  accessModes:
+    - ReadWriteOnce
+
+  # Retain: data tetap ada setelah PVC dihapus (tidak otomatis dihapus)
+  # Berguna untuk keamanan data production
+  persistentVolumeReclaimPolicy: Retain
+
+  # hostPath: menggunakan direktori di Node (untuk minikube/lokal)
+  # Untuk production, gunakan cloud storage seperti AWS EBS, GCE PD, dll.
+  hostPath:
+    path: "/mnt/data/mongodb"
+
+---
+# ---
+# Bagian 2: PersistentVolumeClaim
+# Permintaan storage yang akan digunakan oleh MongoDB StatefulSet
+# ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  # Nama PVC yang akan direferensikan di StatefulSet
+  name: mongo-pvc
+  namespace: default
+  labels:
+    app: mongodb
+spec:
+  # Access mode harus sesuai dengan PV yang tersedia
+  accessModes:
+    - ReadWriteOnce
+
+  # Jumlah storage yang diminta (harus <= kapasitas PV)
+  resources:
+    requests:
+      storage: 1Gi

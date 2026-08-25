@@ -1,0 +1,105 @@
+# =============================================================
+# karsajobs-deployment.yml
+# Deskripsi: Deployment untuk backend Karsa Jobs (Go API).
+#
+# Deployment memastikan jumlah replika Pod yang diinginkan
+# selalu berjalan. Jika Pod mati, Deployment akan otomatis
+# membuat Pod baru sebagai penggantinya.
+#
+# Backend ini adalah REST API yang ditulis dalam Go dan
+# terhubung ke MongoDB untuk menyimpan dan mengambil data
+# lowongan pekerjaan.
+# =============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Nama Deployment backend
+  name: karsajobs
+  namespace: default
+  labels:
+    app: karsajobs
+spec:
+  # Jumlah replika Pod backend yang dijalankan
+  replicas: 1
+
+  # Selector untuk memilih Pod yang dikelola Deployment ini
+  selector:
+    matchLabels:
+      app: karsajobs
+
+  template:
+    metadata:
+      # Label pada Pod harus sesuai dengan selector di atas
+      labels:
+        app: karsajobs
+    spec:
+      containers:
+        - name: karsajobs
+          # Image dari GitHub Container Registry
+          # Ganti dengan image yang sudah di-push menggunakan build script
+          image: ghcr.io/josapratama/karsajobs:latest
+
+          # imagePullPolicy Always memastikan selalu pull image terbaru
+          # dari registry setiap kali Pod dibuat atau di-restart
+          imagePullPolicy: Always
+
+          ports:
+            # Port yang dibuka oleh backend Go (sesuai APP_PORT)
+            - containerPort: 8080
+
+          # Environment variables yang dibutuhkan oleh aplikasi backend
+          env:
+            # Port yang digunakan oleh aplikasi backend Go
+            - name: APP_PORT
+              value: "8080"
+
+            # Hostname MongoDB diambil dari nama Service MongoDB
+            # Kubernetes DNS memungkinkan komunikasi antar Pod via nama Service
+            - name: MONGO_HOST
+              value: "mongo-service"
+
+            # Username MongoDB diambil dari Secret (lebih aman dari hardcode)
+            - name: MONGO_USER
+              valueFrom:
+                secretKeyRef:
+                  # Nama Secret yang berisi kredensial MongoDB
+                  name: mongo-secret
+                  # Key dalam Secret yang berisi username
+                  key: MONGO_ROOT_USERNAME
+
+            # Password MongoDB diambil dari Secret (lebih aman dari hardcode)
+            - name: MONGO_PASS
+              valueFrom:
+                secretKeyRef:
+                  # Nama Secret yang berisi kredensial MongoDB
+                  name: mongo-secret
+                  # Key dalam Secret yang berisi password
+                  key: MONGO_ROOT_PASSWORD
+
+          # Resource limits untuk manajemen resource container
+          resources:
+            requests:
+              memory: "64Mi"    # Minimal memory yang dijamin tersedia
+              cpu: "100m"       # Minimal CPU yang dijamin tersedia
+            limits:
+              memory: "128Mi"   # Maksimal memory yang boleh digunakan
+              cpu: "200m"       # Maksimal CPU yang boleh digunakan
+
+          # Liveness probe: cek apakah container masih berjalan dengan baik
+          # Jika gagal, Kubernetes akan merestart container
+          livenessProbe:
+            httpGet:
+              path: /api/jobs   # Endpoint yang dicek
+              port: 8080
+            initialDelaySeconds: 15   # Tunggu 15 detik sebelum mulai cek
+            periodSeconds: 20         # Cek setiap 20 detik
+
+          # Readiness probe: cek apakah container siap menerima traffic
+          # Pod tidak akan menerima traffic sampai probe ini berhasil
+          readinessProbe:
+            httpGet:
+              path: /api/jobs
+              port: 8080
+            initialDelaySeconds: 10   # Tunggu 10 detik sebelum mulai cek
+            periodSeconds: 10         # Cek setiap 10 detik
