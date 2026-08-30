@@ -1,0 +1,21 @@
+GitHub Container Registry (GHCR) - Karsa Jobs Images
+=====================================================
+
+Backend API (Go):
+  https://ghcr.io/josapratama/karsajobs
+
+Frontend UI (Vue.js):
+  https://ghcr.io/josapratama/karsajobs-ui
+
+GitHub Repository:
+  https://github.com/josapratama/a433-microservices
+
+Cara pull image:
+  docker pull ghcr.io/josapratama/karsajobs:latest
+  docker pull ghcr.io/josapratama/karsajobs-ui:latest
+
+Catatan:
+  - Image di-build dan di-push otomatis via GitHub Actions CI
+  - Branch karsajobs  -> CI berhasil (lint + test + build/push)
+  - Branch karsajobs-ui -> CI berhasil (lint + build/push)
+  - Semua image bersifat public di GHCR
