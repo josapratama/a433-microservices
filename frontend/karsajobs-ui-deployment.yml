@@ -61,16 +61,16 @@ spec:
           # Resource limits untuk manajemen resource container
           resources:
             requests:
-              memory: "64Mi"    # Minimal memory yang dijamin tersedia
-              cpu: "100m"       # Minimal CPU yang dijamin tersedia
+              memory: "64Mi" # Minimal memory yang dijamin tersedia
+              cpu: "100m" # Minimal CPU yang dijamin tersedia
             limits:
-              memory: "256Mi"   # Maksimal memory yang boleh digunakan
-              cpu: "300m"       # Maksimal CPU yang boleh digunakan
+              memory: "256Mi" # Maksimal memory yang boleh digunakan
+              cpu: "300m" # Maksimal CPU yang boleh digunakan
 
           # Readiness probe: cek apakah container siap menerima traffic
           readinessProbe:
             httpGet:
-              path: /         # Halaman utama frontend
+              path: / # Halaman utama frontend
               port: 8000
-            initialDelaySeconds: 15   # Tunggu 15 detik sebelum mulai cek
-            periodSeconds: 10         # Cek setiap 10 detik
+            initialDelaySeconds: 15 # Tunggu 15 detik sebelum mulai cek
+            periodSeconds: 10 # Cek setiap 10 detik

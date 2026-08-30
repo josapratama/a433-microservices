@@ -67,40 +67,40 @@ spec:
           volumeMounts:
             # Mount PersistentVolume untuk menyimpan data MongoDB
             - name: mongo-storage
-              mountPath: /data/db   # Harus sesuai dengan dbPath di mongo.conf
+              mountPath: /data/db # Harus sesuai dengan dbPath di mongo.conf
 
             # Mount ConfigMap sebagai file konfigurasi MongoDB
             - name: mongo-config
-              mountPath: /config    # Tempat file mongo.conf akan tersedia
+              mountPath: /config # Tempat file mongo.conf akan tersedia
 
             # Mount Secret sebagai file kredensial
             - name: mongo-secret
-              mountPath: /etc/mongo-credentials  # Tempat file username & password
+              mountPath: /etc/mongo-credentials # Tempat file username & password
 
           # Resource limits dan requests untuk manajemen resource
           resources:
             requests:
-              memory: "256Mi"   # Minimal memory yang dijamin tersedia
-              cpu: "250m"       # Minimal CPU yang dijamin tersedia (250 miliCPU)
+              memory: "256Mi" # Minimal memory yang dijamin tersedia
+              cpu: "250m" # Minimal CPU yang dijamin tersedia (250 miliCPU)
             limits:
-              memory: "512Mi"   # Maksimal memory yang boleh digunakan
-              cpu: "500m"       # Maksimal CPU yang boleh digunakan
+              memory: "512Mi" # Maksimal memory yang boleh digunakan
+              cpu: "500m" # Maksimal CPU yang boleh digunakan
 
       # Mendefinisikan volume yang tersedia untuk di-mount ke container
       volumes:
         # Volume dari PersistentVolumeClaim untuk data persistensi
         - name: mongo-storage
           persistentVolumeClaim:
-            claimName: mongo-pvc   # Nama PVC yang dibuat di mongo-pv-pvc.yml
+            claimName: mongo-pvc # Nama PVC yang dibuat di mongo-pv-pvc.yml
 
         # Volume dari ConfigMap untuk konfigurasi MongoDB
         - name: mongo-config
           configMap:
-            name: mongo-config    # Nama ConfigMap di mongo-configmap.yml
+            name: mongo-config # Nama ConfigMap di mongo-configmap.yml
 
         # Volume dari Secret untuk kredensial MongoDB
-        # defaultMode: 0400 memastikan file hanya bisa dibaca oleh owner (keamanan)
+        # defaultMode: 0444 agar MongoDB container bisa membaca file credentials
         - name: mongo-secret
           secret:
-            secretName: mongo-secret    # Nama Secret di mongo-secret.yml
-            defaultMode: 0400           # Permission: owner read-only
+            secretName: mongo-secret # Nama Secret di mongo-secret.yml
+            defaultMode: 0444 # Permission: readable by all (diperlukan oleh MongoDB entrypoint)

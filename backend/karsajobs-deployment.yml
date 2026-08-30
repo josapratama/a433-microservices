@@ -80,26 +80,26 @@ spec:
           # Resource limits untuk manajemen resource container
           resources:
             requests:
-              memory: "64Mi"    # Minimal memory yang dijamin tersedia
-              cpu: "100m"       # Minimal CPU yang dijamin tersedia
+              memory: "64Mi" # Minimal memory yang dijamin tersedia
+              cpu: "100m" # Minimal CPU yang dijamin tersedia
             limits:
-              memory: "128Mi"   # Maksimal memory yang boleh digunakan
-              cpu: "200m"       # Maksimal CPU yang boleh digunakan
+              memory: "128Mi" # Maksimal memory yang boleh digunakan
+              cpu: "200m" # Maksimal CPU yang boleh digunakan
 
           # Liveness probe: cek apakah container masih berjalan dengan baik
           # Jika gagal, Kubernetes akan merestart container
           livenessProbe:
             httpGet:
-              path: /api/jobs   # Endpoint yang dicek
+              path: /health # Endpoint health check yang tersedia di routes.go
               port: 8080
-            initialDelaySeconds: 15   # Tunggu 15 detik sebelum mulai cek
-            periodSeconds: 20         # Cek setiap 20 detik
+            initialDelaySeconds: 15 # Tunggu 15 detik sebelum mulai cek
+            periodSeconds: 20 # Cek setiap 20 detik
 
           # Readiness probe: cek apakah container siap menerima traffic
           # Pod tidak akan menerima traffic sampai probe ini berhasil
           readinessProbe:
             httpGet:
-              path: /api/jobs
+              path: /health
               port: 8080
-            initialDelaySeconds: 10   # Tunggu 10 detik sebelum mulai cek
-            periodSeconds: 10         # Cek setiap 10 detik
+            initialDelaySeconds: 10 # Tunggu 10 detik sebelum mulai cek
+            periodSeconds: 10 # Cek setiap 10 detik
